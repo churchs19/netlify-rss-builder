@@ -7,9 +7,6 @@
 import { parse } from "node-html-parser";
 import { fetchHtml } from "../lib/fetch-html.mjs";
 
-export const BLOB_STORE = "denverpost";
-export const BLOB_KEY = "rss-feed";
-
 export const feedConfig = {
   title: "Denver Post – Sports",
   description: "Latest sports news from The Denver Post",

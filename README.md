@@ -12,28 +12,30 @@ A Netlify Function app that scrapes news sources and serves them as RSS 2.0 feed
 
 ```plaintext
 netlify-rss-builder/
-├── netlify.toml                              # Netlify config, function settings, and URL redirects
+├── netlify.toml                          # Netlify config, function settings, and URL redirects
 ├── package.json
 ├── public/
-│   └── index.html                            # Landing page listing all feeds
+│   └── index.html                        # Landing page listing all feeds
 ├── scripts/
-│   └── test-scraper.mjs                      # Local test runner (npm test)
+│   └── test-scraper.mjs                  # Local test runner (npm test)
 └── netlify/
     ├── lib/
-    │   ├── rss-utils.mjs                     # Shared: buildRss(), escapeXml()
-    │   └── fetch-html.mjs                    # Shared: fetchHtml() with browser User-Agent
+    │   ├── rss-utils.mjs                 # Shared: buildRss(), escapeXml()
+    │   └── fetch-html.mjs                # Shared: fetchHtml() with browser User-Agent
     ├── sources/
-    │   └── denverpost.mjs                    # Denver Post: feedConfig + scrapeArticles()
+    │   ├── registry.mjs                  # Maps slug → source module (edit to add sources)
+    │   └── denverpost.mjs                # Denver Post: feedConfig + scrapeArticles()
     └── functions/
-        ├── denverpost-generate-rss.mjs       # Scheduled — runs @hourly, writes to Blob store
-        └── denverpost-rss.mjs                # HTTP handler — serves /denverpost/rss.xml
+        ├── generate-rss.mjs              # Scheduled @hourly — refreshes all registered sources
+        └── rss.mjs                       # HTTP handler — serves /:source/rss.xml for any source
 ```
 
 ### Key conventions
 
-- **`netlify/sources/<name>.mjs`** — source-specific config and scraper. Exports `feedConfig`, `BLOB_STORE`, `BLOB_KEY`, and `scrapeArticles()`.
-- **`netlify/functions/<name>-generate-rss.mjs`** — scheduled function that scrapes and caches the feed. One per source.
-- **`netlify/functions/<name>-rss.mjs`** — HTTP function that reads from the Blob cache and serves the feed. Falls back to a live scrape if no cache exists yet.
+- **`netlify/sources/registry.mjs`** — the single place to register a new source. Maps URL slug → source module.
+- **`netlify/sources/<slug>.mjs`** — source-specific config and scraper. Exports `feedConfig` and `scrapeArticles()`.
+- **`netlify/functions/generate-rss.mjs`** — one scheduled function for all sources. Loops the registry every hour, scrapes each source, and writes RSS XML to its Blob store.
+- **`netlify/functions/rss.mjs`** — one HTTP function for all sources. Extracts the slug from the request URL path, looks it up in the registry, and serves the cached feed.
 - **`netlify/lib/`** — shared utilities imported by all functions and sources.
 
 ## Getting started
@@ -74,18 +76,16 @@ netlify deploy --prod
 
 ## Adding a new source
 
-Follow these five steps to wire up a new RSS feed.
+Adding a source now requires **two steps only** — no new function files, no `netlify.toml` changes.
 
 ### 1. Create the source module
 
-Create `netlify/sources/<name>.mjs`. It must export:
+Create `netlify/sources/<slug>.mjs`. It must export:
 
-| Export           | Type             | Description                                    |
-|------------------|------------------|------------------------------------------------|
-| `BLOB_STORE`     | `string`         | Unique Netlify Blob store name for this source |
-| `BLOB_KEY`       | `string`         | Key used to store the RSS XML within the store |
-| `feedConfig`     | `object`.        | `{ title, description, siteUrl, feedUrl }`     |
-| `scrapeArticles` | `async function` | Returns `Article[]` (see shape below)          |
+| Export           | Type             | Description                                |
+|------------------|------------------|--------------------------------------------|
+| `feedConfig`     | `object`         | `{ title, description, siteUrl, feedUrl }` |
+| `scrapeArticles` | `async function` | Returns `Article[]` (see shape below)      |
 
 **Article shape:**
 
@@ -99,15 +99,11 @@ Create `netlify/sources/<name>.mjs`. It must export:
 }
 ```
 
-**Example:**
+**Example — `netlify/sources/mysite.mjs`:**
 
 ```js
-// netlify/sources/mysite.mjs
 import { parse } from "node-html-parser";
 import { fetchHtml } from "../lib/fetch-html.mjs";
-
-export const BLOB_STORE = "mysite";
-export const BLOB_KEY   = "rss-feed";
 
 export const feedConfig = {
   title:       "My Site – News",
@@ -133,100 +129,19 @@ export async function scrapeArticles() {
 }
 ```
 
-### 2. Create the scheduled function
-
-Create `netlify/functions/<name>-generate-rss.mjs`:
+### 2. Register it in `netlify/sources/registry.mjs`
 
 ```js
-import { schedule } from "@netlify/functions";
-import { getStore } from "@netlify/blobs";
-import { buildRss } from "../lib/rss-utils.mjs";
-import { BLOB_STORE, BLOB_KEY, feedConfig, scrapeArticles } from "../sources/mysite.mjs";
+import * as denverpost from "./denverpost.mjs";
+import * as mysite     from "./mysite.mjs";       // add this
 
-const handler = schedule("@hourly", async () => {
-  try {
-    const articles = await scrapeArticles();
-    if (articles.length === 0) {
-      console.warn("mysite: no articles found — skipping blob write");
-      return { statusCode: 200 };
-    }
-    const xml = buildRss(articles, feedConfig);
-    const store = getStore(BLOB_STORE);
-    await store.set(BLOB_KEY, xml, { metadata: { generatedAt: new Date().toISOString() } });
-    console.log(`mysite: RSS feed updated with ${articles.length} articles`);
-    return { statusCode: 200 };
-  } catch (err) {
-    console.error("mysite generate-rss error:", err);
-    return { statusCode: 500 };
-  }
-});
-
-export { handler };
+export const sources = {
+  denverpost,
+  mysite,                                          // add this
+};
 ```
 
-### 3. Create the HTTP handler function
-
-Create `netlify/functions/<name>-rss.mjs`:
-
-```js
-import { getStore } from "@netlify/blobs";
-import { buildRss } from "../lib/rss-utils.mjs";
-import { BLOB_STORE, BLOB_KEY, feedConfig, scrapeArticles } from "../sources/mysite.mjs";
-
-export default async function handler(_req, _context) {
-  try {
-    const store = getStore(BLOB_STORE);
-    let xml = await store.get(BLOB_KEY);
-
-    if (!xml) {
-      const articles = await scrapeArticles();
-      xml = buildRss(articles, feedConfig);
-      await store.set(BLOB_KEY, xml, { metadata: { generatedAt: new Date().toISOString() } });
-    }
-
-    return new Response(xml, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/rss+xml; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
-  } catch (err) {
-    console.error("mysite rss handler error:", err);
-    return new Response("Failed to generate RSS feed", { status: 500 });
-  }
-}
-```
-
-### 4. Add redirects to `netlify.toml`
-
-```toml
-[[redirects]]
-  from = "/mysite/rss.xml"
-  to   = "/.netlify/functions/mysite-rss"
-  status = 200
-
-[[redirects]]
-  from = "/mysite/feed"
-  to   = "/.netlify/functions/mysite-rss"
-  status = 200
-```
-
-### 5. Register the source in the test runner
-
-Add an entry to the `SOURCES` array in `scripts/test-scraper.mjs`:
-
-```js
-import {
-  feedConfig as mysiteConfig,
-  scrapeArticles as scrapeMysite,
-} from "../netlify/sources/mysite.mjs";
-
-const SOURCES = [
-  { name: "Denver Post", config: denverpostConfig, scrape: scrapeDenverpost },
-  { name: "My Site",     config: mysiteConfig,     scrape: scrapeMysite     }, // add this
-];
-```
+That's it. The generic `generate-rss` scheduler and `rss` HTTP handler pick it up automatically. The feed is immediately available at `/mysite/rss.xml` and `/mysite/feed`.
 
 Then verify everything works before deploying:
 
@@ -238,15 +153,18 @@ npm test
 
 ```plaintext
 Every hour
-  └─ <name>-generate-rss (scheduled function)
-       ├─ Fetches the source URL
-       ├─ Parses HTML with node-html-parser
-       ├─ Builds RSS 2.0 XML via buildRss()
-       └─ Writes XML to Netlify Blobs (<BLOB_STORE> / <BLOB_KEY>)
+  └─ generate-rss (one scheduled function for all sources)
+       └─ for each source in registry.mjs:
+            ├─ Fetches the source URL
+            ├─ Parses HTML with node-html-parser
+            ├─ Builds RSS 2.0 XML via buildRss()
+            └─ Writes XML to Netlify Blobs (store: <slug> / key: "rss-feed")
 
-On request to /<name>/rss.xml
-  └─ <name>-rss (HTTP function)
-       ├─ Reads cached XML from Netlify Blobs
+On request to /<slug>/rss.xml
+  └─ rss (one HTTP function for all sources)
+       ├─ Extracts slug from the request URL path
+       ├─ Looks up the source in registry.mjs
+       ├─ Reads cached XML from Netlify Blobs (<slug> store)
        ├─ Falls back to live scrape if no cache exists
        └─ Returns RSS XML with Content-Type: application/rss+xml
 ```

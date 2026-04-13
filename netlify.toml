@@ -6,15 +6,14 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# ── Denver Post ────────────────────────────────────────────────────────────────
+# Route /:source/rss.xml and /:source/feed to the generic rss function.
+# The function extracts the slug from the original request URL path.
 [[redirects]]
-  from = "/denverpost/rss.xml"
-  to   = "/.netlify/functions/denverpost-rss"
+  from = "/:source/rss.xml"
+  to   = "/.netlify/functions/rss"
   status = 200
 
 [[redirects]]
-  from = "/denverpost/feed"
-  to   = "/.netlify/functions/denverpost-rss"
+  from = "/:source/feed"
+  to   = "/.netlify/functions/rss"
   status = 200
-
-# ── Add new sources above this line ───────────────────────────────────────────
