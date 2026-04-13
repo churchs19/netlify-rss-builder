@@ -10,7 +10,7 @@ A Netlify Function app that scrapes news sources and serves them as RSS 2.0 feed
 
 ## Project structure
 
-```
+```plaintext
 netlify-rss-builder/
 ├── netlify.toml                              # Netlify config, function settings, and URL redirects
 ├── package.json
@@ -80,12 +80,12 @@ Follow these five steps to wire up a new RSS feed.
 
 Create `netlify/sources/<name>.mjs`. It must export:
 
-| Export | Type | Description |
-|---|---|---|
-| `BLOB_STORE` | `string` | Unique Netlify Blob store name for this source |
-| `BLOB_KEY` | `string` | Key used to store the RSS XML within the store |
-| `feedConfig` | `object` | `{ title, description, siteUrl, feedUrl }` |
-| `scrapeArticles` | `async function` | Returns `Article[]` (see shape below) |
+| Export           | Type             | Description                                    |
+|------------------|------------------|------------------------------------------------|
+| `BLOB_STORE`     | `string`         | Unique Netlify Blob store name for this source |
+| `BLOB_KEY`       | `string`         | Key used to store the RSS XML within the store |
+| `feedConfig`     | `object`.        | `{ title, description, siteUrl, feedUrl }`     |
+| `scrapeArticles` | `async function` | Returns `Article[]` (see shape below)          |
 
 **Article shape:**
 
@@ -236,7 +236,7 @@ npm test
 
 ## How it works
 
-```
+```plaintext
 Every hour
   └─ <name>-generate-rss (scheduled function)
        ├─ Fetches the source URL
@@ -253,8 +253,8 @@ On request to /<name>/rss.xml
 
 ## Dependencies
 
-| Package | Purpose |
-|---|---|
-| [`@netlify/functions`](https://www.npmjs.com/package/@netlify/functions) | `schedule()` helper for cron functions |
-| [`@netlify/blobs`](https://www.npmjs.com/package/@netlify/blobs) | Persistent key-value store for caching RSS XML |
-| [`node-html-parser`](https://www.npmjs.com/package/node-html-parser) | Fast HTML parser for scraping article data |
+| Package                                                                  | Purpose                                        |
+|--------------------------------------------------------------------------|------------------------------------------------|
+| [`@netlify/functions`](https://www.npmjs.com/package/@netlify/functions) | `schedule()` helper for cron functions         |
+| [`@netlify/blobs`](https://www.npmjs.com/package/@netlify/blobs)         | Persistent key-value store for caching RSS XML |
+| [`node-html-parser`](https://www.npmjs.com/package/node-html-parser)     | Fast HTML parser for scraping article data     |
