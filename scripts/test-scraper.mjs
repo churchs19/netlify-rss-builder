@@ -1,129 +1,58 @@
 /**
- * Local test script — validates the scraper and RSS output without Netlify.
+ * Local test script — validates each source's scraper and RSS output without Netlify.
  * Run with: npm test
+ *
+ * To add a new source, import it and add an entry to the SOURCES array.
  */
-import { parse } from "node-html-parser";
+import { buildRss } from "../netlify/lib/rss-utils.mjs";
+import {
+  feedConfig as denverpostConfig,
+  scrapeArticles as scrapeDenverpost,
+} from "../netlify/sources/denverpost.mjs";
 
-const SPORTS_URL = "https://www.denverpost.com/sports";
-const FEED_TITLE = "Denver Post – Sports";
-const FEED_DESCRIPTION = "Latest sports news from The Denver Post";
+const SOURCES = [
+  { name: "Denver Post", config: denverpostConfig, scrape: scrapeDenverpost },
+];
 
-function escapeXml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
+async function testSource({ name, config, scrape }) {
+  console.log(`\n── ${name} ${"─".repeat(50 - name.length)}`);
+  console.log(`Fetching ${config.siteUrl} ...`);
 
-function buildRss(articles) {
-  const pubDate = new Date().toUTCString();
-
-  const items = articles
-    .map(({ title, url, description, pubDate: itemDate, author }) => {
-      const itemPubDate = itemDate ? new Date(itemDate * 1000).toUTCString() : pubDate;
-      const descCdata = description ? `<![CDATA[${description}]]>` : "";
-      const authorTag = author ? `<author>${escapeXml(author)}</author>` : "";
-      return `
-    <item>
-      <title>${escapeXml(title)}</title>
-      <link>${escapeXml(url)}</link>
-      <guid isPermaLink="true">${escapeXml(url)}</guid>
-      <pubDate>${itemPubDate}</pubDate>
-      ${authorTag}
-      <description>${descCdata}</description>
-    </item>`;
-    })
-    .join("");
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>${escapeXml(FEED_TITLE)}</title>
-    <link>${escapeXml(SPORTS_URL)}</link>
-    <description>${escapeXml(FEED_DESCRIPTION)}</description>
-    <language>en-us</language>
-    <lastBuildDate>${pubDate}</lastBuildDate>
-    <atom:link href="/.netlify/functions/rss" rel="self" type="application/rss+xml"/>
-    ${items}
-  </channel>
-</rss>`;
-}
-
-async function scrapeArticles() {
-  const response = await fetch(SPORTS_URL, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Denver Post: HTTP ${response.status}`);
-  }
-
-  const html = await response.text();
-  const root = parse(html);
-
-  const seen = new Set();
-  const articles = [];
-
-  for (const articleEl of root.querySelectorAll("article")) {
-    const linkEl = articleEl.querySelector("a.article-title");
-    if (!linkEl) continue;
-
-    const url = linkEl.getAttribute("href")?.trim();
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-
-    const title = linkEl.querySelector(".dfm-title")?.text?.trim() || linkEl.text.trim();
-    if (!title) continue;
-
-    const tsAttr = articleEl.getAttribute("data-timestamp");
-    const pubDate = tsAttr ? parseInt(tsAttr, 10) : null;
-
-    const excerptEl = articleEl.querySelector(".excerpt, .article-excerpt, p");
-    const description = excerptEl?.text?.trim() || "";
-
-    const authorEl = articleEl.querySelector(".byline, .author, .post-author");
-    const author = authorEl?.text?.trim().replace(/^by\s+/i, "") || "";
-
-    articles.push({ title, url, description, pubDate, author });
-  }
-
-  return articles;
-}
-
-async function main() {
-  console.log("Fetching Denver Post sports page...");
-  const articles = await scrapeArticles();
+  const articles = await scrape();
 
   if (articles.length === 0) {
-    console.error("ERROR: No articles found. The page structure may have changed.");
-    process.exit(1);
+    throw new Error("No articles found. The page structure may have changed.");
   }
 
   console.log(`✓ Found ${articles.length} articles\n`);
 
   articles.slice(0, 5).forEach((a, i) => {
-    console.log(`[${i + 1}] ${a.title}`);
-    console.log(`    ${a.url}`);
-    if (a.pubDate) {
-      console.log(`    ${new Date(a.pubDate * 1000).toISOString()}`);
-    }
-    console.log();
+    console.log(`  [${i + 1}] ${a.title}`);
+    console.log(`       ${a.url}`);
+    if (a.pubDate)
+      console.log(`       ${new Date(a.pubDate * 1000).toISOString()}`);
   });
 
-  const xml = buildRss(articles);
-  console.log("✓ RSS XML generated successfully");
-  console.log(`  Feed length: ${xml.length} chars`);
-  console.log(`  First 300 chars:\n${xml.slice(0, 300)}\n`);
+  const xml = buildRss(articles, config);
+  console.log(`\n✓ RSS XML generated — ${xml.length} chars`);
+  console.log(`  atom:link self → ${config.feedUrl}`);
+}
+
+async function main() {
+  let failed = false;
+  for (const source of SOURCES) {
+    try {
+      await testSource(source);
+    } catch (err) {
+      console.error(`\n✗ ${source.name} FAILED:`, err.message);
+      failed = true;
+    }
+  }
+  if (failed) process.exit(1);
+  console.log("\n✓ All sources passed\n");
 }
 
 main().catch((err) => {
-  console.error("Test failed:", err);
+  console.error("Test runner error:", err);
   process.exit(1);
 });

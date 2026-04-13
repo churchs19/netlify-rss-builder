@@ -6,13 +6,15 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Serve the RSS feed at a friendlier URL
+# ── Denver Post ────────────────────────────────────────────────────────────────
 [[redirects]]
-  from = "/rss.xml"
-  to   = "/.netlify/functions/rss"
+  from = "/denverpost/rss.xml"
+  to   = "/.netlify/functions/denverpost-rss"
   status = 200
 
 [[redirects]]
-  from = "/feed"
-  to   = "/.netlify/functions/rss"
+  from = "/denverpost/feed"
+  to   = "/.netlify/functions/denverpost-rss"
   status = 200
+
+# ── Add new sources above this line ───────────────────────────────────────────

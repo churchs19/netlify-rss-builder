@@ -1,28 +1,70 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Denver Post Sports RSS</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1rem; color: #222; }
-    h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
-    p  { color: #555; line-height: 1.6; }
-    a  { color: #006fb7; }
-    code { background: #f4f4f4; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
-  </style>
-</head>
-<body>
-  <h1>📰 Denver Post Sports RSS</h1>
-  <p>
-    This site publishes an RSS 2.0 feed of the latest sports articles from
-    <a href="https://www.denverpost.com/sports" target="_blank" rel="noopener">The Denver Post</a>.
-    The feed is refreshed automatically every hour.
-  </p>
-  <p>Subscribe using any RSS reader:</p>
-  <ul>
-    <li>Feed URL: <a href="/rss.xml"><code>/rss.xml</code></a></li>
-    <li>Alternate: <a href="/feed"><code>/feed</code></a></li>
-  </ul>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RSS Feed Builder</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 600px;
+        margin: 4rem auto;
+        padding: 0 1rem;
+        color: #222;
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #555;
+        line-height: 1.6;
+      }
+      a {
+        color: #006fb7;
+      }
+      code {
+        background: #f4f4f4;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📰 RSS Feed Builder</h1>
+    <p>
+      RSS 2.0 feeds scraped from news sources and refreshed automatically every
+      hour.
+    </p>
+
+    <h2>Available feeds</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Feed URL</th>
+          <th>Alternate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <a
+              href="https://www.denverpost.com/sports"
+              target="_blank"
+              rel="noopener"
+              >Denver Post – Sports</a
+            >
+          </td>
+          <td>
+            <a href="/denverpost/rss.xml"><code>/denverpost/rss.xml</code></a>
+          </td>
+          <td>
+            <a href="/denverpost/feed"><code>/denverpost/feed</code></a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
 </html>
