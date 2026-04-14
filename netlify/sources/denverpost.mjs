@@ -46,5 +46,12 @@ export async function scrapeArticles() {
     articles.push({ title, url, description, pubDate, author });
   }
 
+  // Ensure feed items are returned newest-first.
+  articles.sort((a, b) => {
+    const aDate = typeof a.pubDate === "number" ? a.pubDate : 0;
+    const bDate = typeof b.pubDate === "number" ? b.pubDate : 0;
+    return bDate - aDate;
+  });
+
   return articles;
 }
