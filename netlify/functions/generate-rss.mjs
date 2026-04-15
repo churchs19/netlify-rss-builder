@@ -4,7 +4,7 @@
  * and writes the result to that source's Netlify Blob store.
  */
 import { schedule } from "@netlify/functions";
-import { getStore } from "@netlify/blobs";
+import { connectLambda, getStore } from "@netlify/blobs";
 import { buildRss } from "../lib/rss-utils.mjs";
 import { sources } from "../sources/registry.mjs";
 
@@ -26,7 +26,9 @@ async function refreshSource(slug, source) {
   console.log(`${slug}: RSS feed updated with ${articles.length} articles`);
 }
 
-const handler = schedule("@hourly", async () => {
+const handler = schedule("@hourly", async (event) => {
+  connectLambda(event);
+
   const results = await Promise.allSettled(
     Object.entries(sources).map(([slug, source]) =>
       refreshSource(slug, source),

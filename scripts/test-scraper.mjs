@@ -21,7 +21,7 @@ async function testSource(slug, source) {
 
   console.log(`✓ Found ${articles.length} articles\n`);
 
-  articles.forEach((a, i) => {
+  articles.slice(0, 10).forEach((a, i) => {
     console.log(`  [${i + 1}] ${a.title}`);
     console.log(`       ${a.url}`);
     if (a.pubDate)
