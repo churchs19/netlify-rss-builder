@@ -16,6 +16,8 @@
  *   description?: string
  *   pubDate?    : number   — Unix timestamp (seconds)
  *   author?     : string
+ *   imageUrl?   : string   — absolute URL to a preview image
+ *   previewImageUrl?: string — alias for imageUrl
  * }
  */
 
@@ -40,12 +42,18 @@ export function buildRss(articles, feedConfig) {
         description: desc,
         pubDate: itemDate,
         author,
+        imageUrl,
+        previewImageUrl,
       }) => {
         const itemPubDate = itemDate
           ? new Date(itemDate * 1000).toUTCString()
           : buildDate;
         const descCdata = desc ? `<![CDATA[${desc}]]>` : "";
         const authorTag = author ? `<author>${escapeXml(author)}</author>` : "";
+        const itemImage = imageUrl || previewImageUrl;
+        const imageTag = itemImage
+          ? `<media:content url="${escapeXml(itemImage)}" medium="image"/>`
+          : "";
         return `
     <item>
       <title>${escapeXml(itemTitle)}</title>
@@ -53,6 +61,7 @@ export function buildRss(articles, feedConfig) {
       <guid isPermaLink="true">${escapeXml(url)}</guid>
       <pubDate>${itemPubDate}</pubDate>
       ${authorTag}
+      ${imageTag}
       <description>${descCdata}</description>
     </item>`;
       },
@@ -60,7 +69,7 @@ export function buildRss(articles, feedConfig) {
     .join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>${escapeXml(title)}</title>
     <link>${escapeXml(siteUrl)}</link>

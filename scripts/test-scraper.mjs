@@ -26,6 +26,8 @@ async function testSource(slug, source) {
     console.log(`       ${a.url}`);
     if (a.pubDate)
       console.log(`       ${new Date(a.pubDate * 1000).toISOString()}`);
+    if (a.description) console.log(`       Summary: ${a.description}`);
+    if (a.imageUrl) console.log(`       Image: ${a.imageUrl}`);
   });
 
   const xml = buildRss(articles, feedConfig);
