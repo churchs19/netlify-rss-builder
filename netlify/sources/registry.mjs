@@ -6,7 +6,9 @@
  *   2. Add one import + one entry below
  */
 import * as denverpost from "./denverpost.mjs";
+import * as desmoinesregister from "./desmoinesregister.mjs";
 
 export const sources = {
   denverpost,
+  desmoinesregister,
 };
